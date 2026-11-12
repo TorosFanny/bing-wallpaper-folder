@@ -1,0 +1,16 @@
+{
+  "uuid": "bing-wallpaper-folder@torosfanny.github.io",
+  "name": "Bing Wallpaper Folder",
+  "description": "Browse and apply wallpapers from the folder that Bing daily images are downloaded to. Automatically fetches the daily Bing image, lists every image in your wallpaper folder with on-demand thumbnails, search and copyright info, and stores metadata in a portable sidecar JSON file that travels with the folder.\n\n以壁纸文件夹为事实来源的 Bing 每日壁纸扩展：自动拉取每日 Bing 图片，在面板菜单中浏览文件夹内全部图片（按需缩略图、搜索、版权信息），元数据存为可随文件夹迁移的 sidecar JSON。",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50",
+    "51"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.bing-wallpaper-folder",
+  "url": "https://github.com/TorosFanny/bing-wallpaper-folder"
+}

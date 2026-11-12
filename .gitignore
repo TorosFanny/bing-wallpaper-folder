@@ -1,0 +1,4 @@
+*.shell-extension.zip
+/dist/
+.eslintcache
+gschemas.compiled

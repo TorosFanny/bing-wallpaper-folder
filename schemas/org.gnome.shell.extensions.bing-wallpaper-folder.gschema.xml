@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.bing-wallpaper-folder"
+          path="/org/gnome/shell/extensions/bing-wallpaper-folder/">
+
+    <key name="wallpaper-folder" type="s">
+      <default>""</default>
+      <summary>壁纸目录</summary>
+      <description>留空时使用 ~/Pictures/BingWallpaper，目录中所有图片都会出现在面板菜单里</description>
+    </key>
+
+    <key name="market" type="s">
+      <default>"zh-CN"</default>
+      <summary>Bing 市场</summary>
+      <description>HPImageArchive 的 mkt 参数，auto 表示不指定</description>
+    </key>
+
+    <key name="resolution" type="s">
+      <default>"UHD"</default>
+      <summary>下载分辨率</summary>
+      <description>UHD / 1920x1080 / 1366x768 / 1280x720</description>
+    </key>
+
+    <key name="auto-update" type="b">
+      <default>true</default>
+      <summary>每日自动拉取并切换最新壁纸</summary>
+    </key>
+
+    <key name="apply-on-startup" type="b">
+      <default>true</default>
+      <summary>登录/启动时自动应用壁纸</summary>
+      <description>扩展启动时若桌面壁纸不是上次选中的图片，则主动设置为库内壁纸；已是目标图片时跳过，避免重复写入或闪烁</description>
+    </key>
+
+    <key name="set-lockscreen" type="b">
+      <default>false</default>
+      <summary>同时设置锁屏壁纸</summary>
+    </key>
+
+    <key name="notify" type="b">
+      <default>false</default>
+      <summary>新壁纸到达时发送通知</summary>
+    </key>
+
+    <key name="panel-show-title" type="b">
+      <default>false</default>
+      <summary>在面板显示当前壁纸标题</summary>
+      <description>竖置/窄面板（如左侧 dash-to-panel）建议关闭，只保留图标</description>
+    </key>
+
+    <key name="panel-max-width" type="i">
+      <range min="60" max="600"/>
+      <default>200</default>
+      <summary>面板标题最大宽度（像素）</summary>
+    </key>
+
+    <key name="page-size" type="i">
+      <range min="20" max="500"/>
+      <default>150</default>
+      <summary>菜单列表每页条数</summary>
+    </key>
+
+    <key name="last-image" type="s">
+      <default>""</default>
+      <summary>上次选中的壁纸文件名</summary>
+    </key>
+
+    <key name="last-fetch" type="s">
+      <default>""</default>
+      <summary>上次成功拉取的日期（YYYYMMDD）</summary>
+    </key>
+
+    <key name="neffo-imported" type="b">
+      <default>false</default>
+      <summary>是否已从旧 BingWallpaper 扩展的 dconf 数据导入元数据</summary>
+    </key>
+
+  </schema>
+</schemalist>
