@@ -63,9 +63,12 @@ class BingFolderIndicator extends PanelButton {
         this._refreshing = false;
         this._thumbQueue = [];
         this._thumbCache = new Map();
+        this._thumbLoaderId = null;
         this._headerEntry = null;
         this._memMonitor = null;
         this._memSignal = 0;
+        this._menuSignal = 0;
+        this._monitorSignal = 0;
         try {
             this._memMonitor = Gio.MemoryMonitor.dup_default();
             this._memSignal = this._memMonitor.connect(
@@ -83,7 +86,6 @@ class BingFolderIndicator extends PanelButton {
         this._store = null;
         this._folder = this._resolveFolder();
         this._store = new Lib.MetadataStore(this._folder);
-        this._store.load();
 
         this._panelIcon = new St.Icon({
             icon_name: 'image-x-generic-symbolic',
@@ -104,7 +106,8 @@ class BingFolderIndicator extends PanelButton {
         this._buildMenu();
         this._updatePanelVisible();
         this._connectSignals();
-        this._initFolderAndMonitor();
+        this._initFolderAndMonitor().catch(e =>
+            logInfo(`文件夹初始化失败: ${e}`));
         this._scheduleIdle(INITIAL_DELAY_SECONDS, () => this._startup());
         this._timeouts.add(GLib.timeout_add_seconds(
             GLib.PRIORITY_DEFAULT, POLL_INTERVAL_SECONDS, () => {
@@ -118,12 +121,15 @@ class BingFolderIndicator extends PanelButton {
     _connectSignals() {
         const s = this._settings;
         this._signals.push(
-            s.connect('changed::wallpaper-folder', () => this._initFolderAndMonitor()),
+            s.connect('changed::wallpaper-folder', () => {
+                this._initFolderAndMonitor().catch(e =>
+                    logInfo(`切换壁纸目录失败: ${e}`));
+            }),
             s.connect('changed::panel-show-title', () => this._updatePanelVisible()),
             s.connect('changed::panel-max-width', () => this._applyPanelMaxWidth()),
             s.connect('changed::page-size', () => this._rebuildList()),
         );
-        this.menu.connect('open-state-changed', (_m, open) => {
+        this._menuSignal = this.menu.connect('open-state-changed', (_m, open) => {
             if (open)
                 this._populateVisibleThumbs();
             else
@@ -145,18 +151,22 @@ class BingFolderIndicator extends PanelButton {
         return folder;
     }
 
-    _initFolderAndMonitor() {
+    async _initFolderAndMonitor() {
         this._folder = this._resolveFolder();
         this._store = new Lib.MetadataStore(this._folder);
-        this._store.load();
+        await this._store.load();
 
         if (this._monitor) {
+            if (this._monitorSignal) {
+                this._monitor.disconnect(this._monitorSignal);
+                this._monitorSignal = 0;
+            }
             this._monitor.cancel();
             this._monitor = null;
         }
         this._monitor = Gio.File.new_for_path(this._folder).monitor_directory(
             Gio.FileMonitorFlags.WATCH_MOVES, null);
-        this._monitor.connect('changed', (_m, file) => {
+        this._monitorSignal = this._monitor.connect('changed', (_m, file) => {
             // 写 sidecar 元数据会触发本目录事件，过滤掉避免重载循环
             if (file && file.get_basename() === Lib.METADATA_FILENAME)
                 return;
@@ -168,7 +178,7 @@ class BingFolderIndicator extends PanelButton {
     async _startup() {
         // 一次性导入旧扩展 dconf 元数据（schema 还在时才有机会）
         if (!this._settings.get_boolean('neffo-imported')) {
-            const r = Lib.importNeffoMetadata(
+            const r = await Lib.importNeffoMetadata(
                 this._store, this._folder,
                 () => this._settings.set_boolean('neffo-imported', true));
             if (r.ok && r.added)
@@ -183,15 +193,27 @@ class BingFolderIndicator extends PanelButton {
 
     destroy() {
         for (const sid of this._signals)
-            this._settings.disconnect(sid);
+            this._settings?.disconnect(sid);
         this._signals = [];
+        if (this._menuSignal) {
+            this.menu.disconnect(this._menuSignal);
+            this._menuSignal = 0;
+        }
         for (const id of this._timeouts)
             GLib.source_remove(id);
         this._timeouts.clear();
         for (const id of this._idleSources)
             GLib.source_remove(id);
         this._idleSources.clear();
+        if (this._thumbLoaderId) {
+            GLib.source_remove(this._thumbLoaderId);
+            this._thumbLoaderId = null;
+        }
         if (this._monitor) {
+            if (this._monitorSignal) {
+                this._monitor.disconnect(this._monitorSignal);
+                this._monitorSignal = 0;
+            }
             this._monitor.cancel();
             this._monitor = null;
         }
@@ -208,9 +230,28 @@ class BingFolderIndicator extends PanelButton {
             this._memSignal = 0;
             this._memMonitor = null;
         }
+        // 显式销毁菜单内自建的 widget（super.destroy() 也会随菜单回收，
+        // 这里先断开引用，确保 GObject 立即释放并满足静态生命周期检查）
+        this._headerImage?.destroy();
+        this._headerImage = null;
+        this._headerTitle?.destroy();
+        this._headerTitle = null;
+        this._headerMeta?.destroy();
+        this._headerMeta = null;
+        this._searchEntry?.destroy();
+        this._searchEntry = null;
+        this._listSection?.destroy();
+        this._listSection = null;
+        this._scroll?.destroy();
+        this._scroll = null;
+        this._statusItem?.destroy();
+        this._statusItem = null;
         try {
             this._http.abort();
         } catch (_) {}
+        this._http = null;
+        this._store = null;
+        this._settings = null;
         super.destroy();
     }
 
@@ -754,7 +795,7 @@ class BingFolderIndicator extends PanelButton {
                 if (!newest || img.startdate > newest.img.startdate)
                     newest = {img, name};
             }
-            this._store.save();
+            await this._store.save();
             this._settings.set_string('last-fetch', Lib.today8());
             await this._reloadLibrary();
 

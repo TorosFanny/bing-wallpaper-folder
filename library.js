@@ -124,14 +124,14 @@ export class MetadataStore {
         this._dirty = false;
     }
 
-    load() {
+    async load() {
         if (!this._file.query_exists(null))
             return;
         try {
-            const [ok, bytes] = this._file.load_contents(null);
-            if (!ok)
-                return;
-            const parsed = JSON.parse(new TextDecoder().decode(bytes));
+            // 异步 Promise 化后 resolve 为 [contents, etag]，成功布尔值被丢弃，
+            // 与同步版 [ok, contents] 的元素顺序不同；contents 即 Uint8Array
+            const [contents] = await this._file.load_contents_async(null);
+            const parsed = JSON.parse(new TextDecoder().decode(contents));
             if (parsed && parsed.images && typeof parsed.images === 'object')
                 this._data = parsed;
         } catch (e) {
@@ -139,14 +139,14 @@ export class MetadataStore {
         }
     }
 
-    save() {
+    async save() {
         try {
             const parent = this._file.get_parent();
             if (parent && !parent.query_exists(null))
                 parent.make_directory_with_parents(null);
             const bytes = new TextEncoder().encode(JSON.stringify(this._data, null, 1));
-            this._file.replace_contents(bytes, null, false,
-                Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+            await this._file.replace_contents_async(
+                bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
             this._dirty = false;
         } catch (e) {
             console.warn(`BingWallpaperFolder: metadata.json 写入失败: ${e}`);
@@ -202,7 +202,7 @@ export async function buildLibrary(folderPath, store) {
 
 // 一次性导入 neffo/bing-wallpaper-changer 写在 dconf 里的 bing-json
 // 仅在旧 schema 仍存在、且本扩展尚未导入过时执行
-export function importNeffoMetadata(store, folderPath, markImported) {
+export async function importNeffoMetadata(store, folderPath, markImported) {
     const schema = Gio.SettingsSchemaSource.get_default()
         ?.lookup(NEFFO_SCHEMA, true);
     if (!schema)
@@ -247,7 +247,7 @@ export function importNeffoMetadata(store, folderPath, markImported) {
         }
     }
     if (added)
-        store.save();
+        await store.save();
     markImported();
     return {ok: true, added};
 }
